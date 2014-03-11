@@ -55,14 +55,15 @@ def quantile_1D(data, weights, quantile):
 
 def quantile(data, weights, quantile):
     """
-    Weighted quantile of a 3D data array with respect to the last axis.
+    Weighted quantile of an array with respect to the last axis.
 
     Parameters
     ----------
     data : ndarray
         Input array.
     weights : ndarray
-        Array with the weights of the same size of `data`.
+        Array with the weights. It must have the same size of the last 
+        axis of `data`.
     quantile : float
         Quantile to compute. It must have a value between 0 and 1.
 
@@ -71,17 +72,23 @@ def quantile(data, weights, quantile):
     quantile : float
         The output value.
     """
-    # TODO: Extend to other shapes
-    # TODO: Allow to specify the axis 
-    nx, ny, n = data.shape
-    imr = data.reshape((nx*ny, n))
-    result = np.apply_along_axis(quantile_1D, -1, imr, weights, quantile)
-    return result.reshape((nx,ny))
+    # TODO: Allow to specify the axis
+    nd = data.ndim
+    if nd == 0:
+        TypeError("data must have at least one dimension")
+    elif nd == 1:
+        return quantile_1D(data, weights, quantile)
+    elif nd > 1:
+        n = data.shape
+        imr = data.reshape((np.prod(n[:-1]), n[-1]))
+        result = np.apply_along_axis(quantile_1D, -1, imr, weights, quantile)
+        return result.reshape(n[:-1])
+
 
 
 def median(data, weights):
     """
-    Weighted median of a 3D data array with respect to the last axis.
+    Weighted median of an array with respect to the last axis.
 
     Alias for `quantile(data, weights, 0.5)`.
     """
