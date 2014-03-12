@@ -37,3 +37,6 @@ nosetests.xml
 
 # Compiled documentation
 docs/_build/*
+
+# Assorted
+notes.txt
