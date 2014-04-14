@@ -1,7 +1,7 @@
-weighted module
-===============
+setup module
+============
 
-.. automodule:: weighted
+.. automodule:: setup
     :members:
     :undoc-members:
     :show-inheritance:
