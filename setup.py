@@ -1,11 +1,15 @@
 from __future__ import print_function
 from setuptools import setup, Command
+import os
 
 import weighted
 
 
-with open('README.md') as f:
-    long_description=f.read()
+description = 'Weighted quantiles, including weighted median, based on numpy'
+long_description = description
+if os.path.exists('README.md'):
+    with open('README.md') as f:
+        long_description=f.read()
 
 
 class PyTest(Command):
@@ -31,7 +35,7 @@ setup(
     tests_require=['pytest'],
     install_requires=['numpy'],
     author_email='jsm@iaa.es',
-    description='Weighted quantiles, including weighted median, based on numpy',
+    description=description,
     long_description=long_description,
     platforms='any',
     classifiers = [
