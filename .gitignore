@@ -40,3 +40,19 @@ docs/_build/*
 
 # Assorted
 notes.txt
+
+# OS-specific
+.DS_Store
+.directory
+
+# Editors
+.*.s[a-w][a-z]
+*.un~
+Session.vim
+.netrwhist
+*~
+*.kate-swp
+
+# IDE
+.idea/*
+*.iml

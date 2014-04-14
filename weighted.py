@@ -5,7 +5,7 @@ numpy arrays.
 from __future__ import print_function
 import numpy as np
 
-__version__ = "0.2"
+__version__ = "0.3"
 
 
 def quantile_1D(data, weights, quantile):
