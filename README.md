@@ -1,6 +1,8 @@
 wquantiles
 ==========
 
+[![DOI](https://zenodo.org/badge/doi/10.5281/zenodo.14952.svg)](http://dx.doi.org/10.5281/zenodo.14952)
+
 Weighted quantiles with Python, including weighted median. 
 This library is based on numpy, which is the only dependence.
 
