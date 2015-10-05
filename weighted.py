@@ -27,9 +27,9 @@ def quantile_1D(data, weights, quantile):
         The output value.
     """
     # Check the data
-    if not isinstance(data, np.matrix) :
+    if not isinstance(data, np.matrix):
         data = np.asarray(data)
-    if not isinstance(weights, np.matrix) :
+    if not isinstance(weights, np.matrix):
         weights = np.asarray(weights)
     nd = data.ndim
     if nd != 1:
@@ -85,7 +85,6 @@ def quantile(data, weights, quantile):
         return result.reshape(n[:-1])
 
 
-
 def median(data, weights):
     """
     Weighted median of an array with respect to the last axis.
@@ -93,4 +92,3 @@ def median(data, weights):
     Alias for `quantile(data, weights, 0.5)`.
     """
     return quantile(data, weights, 0.5)
-
