@@ -7,7 +7,7 @@ description = 'Weighted quantiles, including weighted median, based on numpy'
 long_description = description
 if os.path.exists('README.md'):
     with open('README.md') as f:
-        long_description=f.read()
+        long_description = f.read()
 
 
 class PyTest(Command):
