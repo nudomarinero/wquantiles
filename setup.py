@@ -26,7 +26,7 @@ class PyTest(Command):
 
 setup(
     name='wquantiles',
-    version='0.4',
+    version='0.5',
     url='http://github.com/nudomarinero/wquantiles/',
     license='MIT License',
     author='Jose Sabater',
@@ -47,7 +47,7 @@ setup(
         'Topic :: Scientific/Engineering :: Mathematics',
         'Topic :: Software Development :: Libraries :: Python Modules',
         ],
-    py_modules=['weighted'],
+    py_modules=['wquantiles','weighted'],
     test_suite='test',
     cmdclass = {'test': PyTest},
     )

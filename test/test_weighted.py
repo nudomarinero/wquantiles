@@ -9,7 +9,7 @@ import numpy.testing as nptest
 # Append the path of the module to the syspath
 sys.path.append('..')
 from weighted import quantile_1D, quantile
-
+from wquantiles import quantile_1D, quantile
 
 class TestPercentiles(unittest.TestCase):
     
