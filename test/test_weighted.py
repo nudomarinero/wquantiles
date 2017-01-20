@@ -5,10 +5,10 @@ import traceback
 import os
 import numpy as np
 import numpy.testing as nptest
+import warnings
 
 # Append the path of the module to the syspath
 sys.path.append('..')
-from weighted import quantile_1D, quantile
 from wquantiles import quantile_1D, quantile
 
 class TestPercentiles(unittest.TestCase):
@@ -82,5 +82,17 @@ class TestPercentiles(unittest.TestCase):
         #print(arr1, arr2)
         nptest.assert_array_almost_equal(arr1, arr2)
 
+
+class TestDeprecation(unittest.TestCase):
+    def test_import_warning(self):
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            # Trigger the warning
+            from weighted import quantile_1D, quantile
+            self.assertEqual(len(w), 1)
+            self.assertTrue(issubclass(w[-1].category, DeprecationWarning))
+            self.assertTrue("deprecated" in str(w[-1].message))
+
+
 if __name__ == '__main__':
-  unittest.main()
+    unittest.main()
