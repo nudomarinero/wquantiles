@@ -3,7 +3,7 @@ wquantiles
 
 [![Build Status](https://travis-ci.org/nudomarinero/wquantiles.svg?branch=master)](https://travis-ci.org/nudomarinero/wquantiles)
 [![DOI](https://zenodo.org/badge/doi/10.5281/zenodo.14952.svg)](http://dx.doi.org/10.5281/zenodo.14952)
-[![Pypi](https://pypip.in/v/wquantiles/badge.png)](https://pypi.python.org/pypi/wquantiles)
+[![Pypi](https://img.shields.io/pypi/v/wquantiles.svg)](https://pypi.python.org/pypi/wquantiles)
 
 Weighted quantiles with Python, including weighted median. 
 This library is based on numpy, which is the only dependence.
