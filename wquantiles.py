@@ -49,7 +49,7 @@ def quantile_1D(data, weights, quantile):
     Sn = np.cumsum(sorted_weights)
     # TODO: Check that the weights do not sum zero
     #assert Sn != 0, "The sum of the weights must not be zero"
-    Pn = (Sn-0.5*sorted_weights)/np.sum(sorted_weights)
+    Pn = (Sn-0.5*sorted_weights)/Sn[-1]
     # Get the value of the weighted median
     return np.interp(quantile, Pn, sorted_data)
 
