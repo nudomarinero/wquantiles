@@ -32,7 +32,7 @@ setup(
     author='Jose Sabater',
     tests_require=['pytest'],
     install_requires=['numpy'],
-    author_email='jsm@iaa.es',
+    author_email='jsm@jsabater.info',
     description=description,
     long_description=long_description,
     platforms='any',
