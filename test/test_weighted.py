@@ -7,8 +7,7 @@ import numpy as np
 import numpy.testing as nptest
 import warnings
 
-# Append the path of the module to the syspath
-sys.path.append('..')
+
 from wquantiles import quantile_1D, quantile
 
 class TestPercentiles(unittest.TestCase):
