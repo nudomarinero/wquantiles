@@ -37,7 +37,7 @@ Establish how the work is done before doing any of it.
 
 ---
 
-## Phase 1 — Migrate to uv · `build/migrate-to-uv` · **[~]**
+## Phase 1 — Migrate to uv · `build/migrate-to-uv` · **[x]**
 
 *Deviation from the original ordering, deliberately:* this was last on the
 earlier list, but every subsequent phase runs its tests and its CI matrix through
@@ -89,7 +89,7 @@ wheel installed in a clean environment.
 
 ---
 
-## Phase 2 — Correctness pass · `fix/correctness` · **[ ]**
+## Phase 2 — Correctness pass · `fix/correctness` · **[~]** *(code done; release pending)*
 
 The behaviour changes here are the substance of the next release. Every one of
 them replaces a silently wrong answer with either a correct one or an exception.
@@ -109,6 +109,17 @@ them replaces a silently wrong answer with either a correct one or an exception.
 
 Also in scope: add type hints and a `py.typed` marker, and an `__all__`.
 
+Added during the phase, beyond the list above:
+
+- Empty `data` raises `ValueError` rather than the bare `IndexError` that
+  `Sn[-1]` produced.
+- Docstrings state which estimator is implemented, and what each function raises.
+- Targeted tests for every behaviour change (`test/test_validation.py`). The
+  broader test restructuring stays in Phase 4, but behaviour changes cannot ship
+  untested.
+- `from wquantiles import *` no longer re-exports the `numpy` import as `np`, a
+  side effect of declaring `__all__`.
+
 **Breaking changes:**
 
 - `BREAKING:` zero-sum, negative, and non-finite weights now raise `ValueError`
@@ -120,9 +131,17 @@ Also in scope: add type hints and a `py.typed` marker, and an `__all__`.
 - `BREAKING:` `__version__` changes from `"0.4"` to the real version. Anyone
   string-matching on `"0.4"` is affected — and was already getting a wrong answer.
 
-None of these get a deprecation period: in each case the previous return value
-was wrong, so no caller can have depended on it meaningfully. All of them go in
-`CHANGES.md` under `### Breaking changes`, and the release notes lead with them.
+- `BREAKING:` empty `data` raises `ValueError` rather than `IndexError`.
+
+Only the parameter rename gets a deprecation period; in each of the other cases
+the previous return value was wrong, so no caller can have depended on it
+meaningfully. All of them go in `CHANGES.md` under `### Breaking changes`, and
+the release notes lead with them.
+
+**Verification.** Results for valid inputs must be, and were confirmed to be,
+bit-identical to 0.6: ~37,000 comparisons across unit, random, integer,
+zero-valued and widely-scaled weights, every quantile from 0 to 1, one- and
+multi-dimensional input, and integer dtypes — zero mismatches.
 
 *Not* breaking, and worth advertising: `quantile()` and `median()` start
 accepting lists, closing issue #11.
@@ -324,6 +343,7 @@ test suite, `axis=` support and array `q`. That is a 1.0.
 | 2 | `NaN` in data propagates as `nan` | none — previous result was wrong |
 | 2 | 0-d data raises `TypeError` | none — previously returned `None` |
 | 2 | `__version__` corrected from `"0.4"` | none — previously wrong |
+| 2 | Empty data raises `ValueError` not `IndexError` | none — both were errors |
 | 2 | `quantile` parameter renamed to `q` | keyword alias kept through 0.x |
 | 9 | `weighted.py` removed | deprecated since 2017 |
 | 9 | `quantile=` keyword alias removed (if chosen) | one minor release |
