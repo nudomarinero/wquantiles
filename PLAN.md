@@ -23,7 +23,7 @@ Legend: **[ ]** not started · **[~]** in progress · **[x]** merged
 
 ---
 
-## Phase 0 — Ground rules · `chore/agents-and-plan` · **[~]**
+## Phase 0 — Ground rules · `chore/agents-and-plan` · **[x]**
 
 Establish how the work is done before doing any of it.
 
@@ -37,7 +37,7 @@ Establish how the work is done before doing any of it.
 
 ---
 
-## Phase 1 — Migrate to uv · `build/migrate-to-uv` · **[ ]**
+## Phase 1 — Migrate to uv · `build/migrate-to-uv` · **[~]**
 
 *Deviation from the original ordering, deliberately:* this was last on the
 earlier list, but every subsequent phase runs its tests and its CI matrix through
@@ -45,9 +45,17 @@ the packaging tooling, so replacing Poetry first means it is done once rather
 than reworked at each step.
 
 - Replace `[tool.poetry]` metadata with PEP 621 `[project]` metadata.
-- Switch the build backend from `poetry-core` to `uv_build` (or `hatchling` —
-  decide during the phase; `uv_build` keeps the toolchain to one thing,
-  `hatchling` is the more conservative choice).
+- Switch the build backend from `poetry-core` to `uv_build`. *Decided:*
+  `uv_build` over `hatchling`, to keep the toolchain to one tool.
+- **Convert both modules to package directories.** `uv_build` requires every
+  shipped module to be a directory containing an `__init__.py`; it cannot ship a
+  bare `.py` file at the project root. Verified: with `wquantiles.py` at the root
+  it fails with *"Expected a Python module at: wquantiles/__init__.py"*. So
+  `wquantiles.py` → `wquantiles/__init__.py` and `weighted.py` →
+  `weighted/__init__.py`. Imports are unchanged for users, and the package now
+  installs as `site-packages/wquantiles/` rather than a loose `.py` file — the
+  layout behind the confusion in issues #1 and #3. It also gives `py.typed` a
+  home in Phase 2.
 - Declare dev dependencies as a PEP 735 dependency group rather than the
   deprecated `[tool.poetry.dev-dependencies]`.
 - Commit `uv.lock`.
@@ -57,10 +65,15 @@ than reworked at each step.
 - Delete `tox.ini` (its `whitelist_externals` is tox-3 syntax and its envlist
   stops at py39) and `.travis.yml` (travis-ci.org is shut down). uv's Python
   management plus the Phase 3 CI matrix replaces both.
-- Fix `packages`/module discovery so `wquantiles.py` and `weighted.py` are still
-  both shipped as top-level modules. **Verify by building an sdist and a wheel
-  and inspecting their contents** — a packaging regression here is exactly the
-  failure reported in issue #1.
+- Delete `conftest.py`. It existed only so `test/` could import the top-level
+  modules via a `sys.path` hack; under uv the package is installed into the
+  environment and the tests import it properly.
+- Ship the test suite and `CHANGES.md` in the sdist so downstream packagers can
+  run the tests.
+- **Verify by building an sdist and a wheel and inspecting their contents**, then
+  installing the wheel into a clean environment and running the sdist's tests
+  against it — a packaging regression here is exactly the failure reported in
+  issue #1.
 
 **Breaking changes:**
 
@@ -68,6 +81,11 @@ than reworked at each step.
   end-of-life. Users on them can pin `wquantiles==0.6`.
 
 No deprecation period: the runtimes concerned are themselves unsupported.
+
+The module-to-package conversion is **not** breaking: `import wquantiles`,
+`from wquantiles import quantile, median, quantile_1D` and `import weighted`
+(with its `DeprecationWarning`) all behave exactly as before. Verified against a
+wheel installed in a clean environment.
 
 ---
 

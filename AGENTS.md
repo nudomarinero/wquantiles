@@ -5,14 +5,14 @@
 `wquantiles` computes **weighted quantiles**, including the weighted median, of
 numpy arrays. numpy is the only runtime dependency.
 
-- `wquantiles.py` — the whole library. Three public functions:
+- `wquantiles/__init__.py` — the whole library. Three public functions:
   - `quantile_1D(data, weights, quantile)` — the actual algorithm, 1-D only.
   - `quantile(data, weights, quantile)` — dispatcher; weights apply along the last axis.
   - `median(data, weights)` — alias for `quantile(data, weights, 0.5)`.
-- `weighted.py` — deprecated import shim kept for pre-0.4 users; emits a
-  `DeprecationWarning` and re-exports `wquantiles`.
-- `test/test_weighted.py` — the test suite (pytest). `conftest.py` at the repo
-  root exists only so `test/` can import the top-level modules.
+- `weighted/__init__.py` — deprecated import shim kept for pre-0.4 users; emits
+  a `DeprecationWarning` and re-exports `wquantiles`.
+- `test/test_weighted.py` — the test suite (pytest). It imports the package as
+  installed in the environment, not from the working tree.
 
 ### The definition it implements
 
@@ -68,10 +68,13 @@ are not breaking.
 
 ## Conventions
 
+- The project is managed with **uv**: `uv sync` to set up, `uv run pytest` to
+  test, `uv build` to build, `uv publish` to release. `uv.lock` is committed.
+- The build backend is `uv_build`. It requires every shipped module to be a
+  package directory containing an `__init__.py` — it cannot ship a bare `.py`
+  file at the project root. That is why both modules are directories.
 - `pyproject.toml` is the authoritative source for the supported Python and
   numpy floors.
 - numpy-style docstrings, as in the existing code.
-- Run the tests with `uv run pytest` once the uv migration has landed; until
-  then, `python -m pytest` from the repo root.
 - `PLAN.md` holds the current roadmap and the state of each phase. Keep it
   updated as phases complete.

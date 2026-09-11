@@ -57,3 +57,6 @@ Session.vim
 # IDE
 .idea/*
 *.iml
+
+# uv
+.venv/
