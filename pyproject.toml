@@ -25,8 +25,10 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Mathematics",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
+# numpy 1.18 has no wheels for Python 3.9, so it is not reachable from any
+# supported interpreter; 1.19 is the oldest combination CI can actually build.
 dependencies = [
-    "numpy>=1.18",
+    "numpy>=1.19",
 ]
 
 [project.urls]
@@ -37,6 +39,7 @@ Changelog = "https://github.com/nudomarinero/wquantiles/blob/master/CHANGES.md"
 [dependency-groups]
 dev = [
     "pytest>=8.3",
+    "pytest-cov>=5.0",
 ]
 
 [build-system]

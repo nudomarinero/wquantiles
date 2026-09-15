@@ -89,7 +89,7 @@ wheel installed in a clean environment.
 
 ---
 
-## Phase 2 — Correctness pass · `fix/correctness` · **[~]** *(code done; release pending)*
+## Phase 2 — Correctness pass · `fix/correctness` · **[x]** *(0.7 release pending)*
 
 The behaviour changes here are the substance of the next release. Every one of
 them replaces a silently wrong answer with either a correct one or an exception.
@@ -164,21 +164,48 @@ give exactly the same answer as filtering the array by hand beforehand.
 
 ---
 
-## Phase 3 — Real CI · `ci/github-actions` · **[ ]**
+## Phase 3 — Real CI · `ci/github-actions` · **[~]**
 
 Nothing currently runs the test suite. `.github/workflows/` holds only
 `codeql-analysis.yml`, and the README's build badge points at travis-ci.org,
 which is shut down — the repository advertises a build status that does not exist.
 
-- GitHub Actions workflow, `uv`-driven, matrix over Python 3.9–3.13 **crossed
-  with numpy 1.x and numpy 2.x**. The 1.x/2.x axis is the one that matters here:
-  it is what proves the compatibility claim the README will make in Phase 5.
-- Run on push and pull request, and make it a required check on both
-  `develop` and `master`.
-- Replace the dead Travis badge in the README with the Actions badge.
-- Add a coverage report.
-- Decide whether to keep `codeql-analysis.yml` — it is close to pointless for a
-  90-line pure-numpy module with no I/O.
+- `.github/workflows/tests.yml`, `uv`-driven. Ten test jobs:
+  - Python 3.9 – 3.14 on Linux with current numpy;
+  - Python 3.9 with **numpy 1.19.5**, the oldest combination that can exist;
+  - Python 3.12 with **numpy 1.x**, the axis that proves the compatibility
+    claim the README makes;
+  - Python 3.12 on Windows and macOS. Windows earns its slot because integer
+    arrays defaulted to int32 there and the tests cover integer dtypes.
+  Verified locally before committing: all six Python versions pass, and numpy
+  back to 1.19.5 passes (with the hazen test correctly skipping below 1.22,
+  where `np.quantile` gained `method=`).
+- A `coverage` job, gated at 100%. The module is at 100% of 87 statements.
+- A `package` job that builds both artefacts, runs `twine check`, and performs
+  the **round trip**: install the wheel into a clean environment and run the
+  sdist's own tests against it. Issue #1 was a packaging failure, so this is
+  proved rather than assumed. Verified locally.
+- Correct the numpy floor from `>=1.18` to `>=1.19`. numpy 1.18 has no wheels
+  for Python 3.9, so with `requires-python = ">=3.9"` it was unreachable from
+  any supported interpreter — the declared floor could never have been used.
+- Modernise `codeql-analysis.yml`: it pinned `github/codeql-action@v1`, which
+  GitHub retired, and `actions/checkout@v2`. *Decided:* keep it rather than
+  delete it, since it was added deliberately in the most recent commit on
+  `master`; it now runs on `develop` too.
+- Add the Actions badge to the README. The Travis badge was already removed in
+  Phase 2, when travis-ci.org turned out to be shut down.
+
+- An `all-green` job that gathers the other three. Matrix jobs are reported
+  under their rendered names (`py3.9 · numpy latest · ubuntu-latest`), so
+  requiring them individually would mean editing the protection rule every time
+  the matrix changes. **`All green` is the one check to require.**
+
+**Manual follow-up for the maintainer:** making this a required check is a
+branch-protection setting in the GitHub UI, not something a workflow file can
+declare, and GitHub only offers a check name for selection after it has seen
+that check run at least once. So the order is: push the branch, let the
+workflow run once, then add the rule requiring `All green` on `master` and
+`develop`.
 
 **Breaking changes:** none.
 

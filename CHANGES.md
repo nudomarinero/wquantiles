@@ -86,8 +86,14 @@ multi-dimensional input, and integer dtypes.
   import**: `import wquantiles`, `from wquantiles import quantile, median,
   quantile_1D` and `import weighted` all behave exactly as before.
 - The sdist now contains the test suite, so downstream packagers can run it.
-- Removed `tox.ini` and `.travis.yml`; travis-ci.org has been shut down and CI
-  moves to GitHub Actions.
+- Removed `tox.ini` and `.travis.yml`; travis-ci.org has been shut down. CI is
+  now GitHub Actions, testing Python 3.9 to 3.14 against both numpy 1.x and
+  numpy 2.x, on Linux, Windows and macOS, plus a job that installs the built
+  wheel into a clean environment and runs the tests against it.
+- The declared numpy floor moves from `>=1.18` to `>=1.19`. This removes
+  nothing in practice: numpy 1.18 has no wheels for Python 3.9, so with the new
+  `requires-python = ">=3.9"` it was unreachable from any supported
+  interpreter.
 - Removed `from __future__ import print_function`, dead in a Python 3 package.
 
 0.6 (2021-05-26)

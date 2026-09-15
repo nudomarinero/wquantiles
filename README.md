@@ -1,6 +1,7 @@
 wquantiles
 ==========
 
+[![Tests](https://github.com/nudomarinero/wquantiles/actions/workflows/tests.yml/badge.svg)](https://github.com/nudomarinero/wquantiles/actions/workflows/tests.yml)
 [![DOI](https://zenodo.org/badge/doi/10.5281/zenodo.14952.svg)](http://dx.doi.org/10.5281/zenodo.14952)
 [![Pypi](https://img.shields.io/pypi/v/wquantiles.svg)](https://pypi.python.org/pypi/wquantiles)
 
