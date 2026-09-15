@@ -37,7 +37,7 @@ Establish how the work is done before doing any of it.
 
 ---
 
-## Phase 1 — Migrate to uv · `build/migrate-to-uv` · **[~]**
+## Phase 1 — Migrate to uv · `build/migrate-to-uv` · **[x]**
 
 *Deviation from the original ordering, deliberately:* this was last on the
 earlier list, but every subsequent phase runs its tests and its CI matrix through
@@ -89,43 +89,75 @@ wheel installed in a clean environment.
 
 ---
 
-## Phase 2 — Correctness pass · `fix/correctness` · **[ ]**
+## Phase 2 — Correctness pass · `fix/correctness` · **[~]** *(code done; release pending)*
 
 The behaviour changes here are the substance of the next release. Every one of
 them replaces a silently wrong answer with either a correct one or an exception.
 
-| Issue | Location | Now | After |
-|---|---|---|---|
-| Dead `raise` | `wquantiles.py:78-79` | `TypeError(...)` built and discarded; 0-d input returns `None` | raises `TypeError` |
-| No input coercion in `quantile()` | `wquantiles.py:77` | `median([1,2,3], [1,1,1])` → `AttributeError: 'list' object has no attribute 'ndim'` (issue #11) | lists accepted, as `quantile_1D` already does |
-| Wrong `__version__` | `wquantiles.py:8` | `"0.4"` while the package is 0.6 | read from package metadata, single source of truth |
-| Inverted `np.matrix` guard | `wquantiles.py:30-33` | skipping `asarray` for a matrix guarantees `ndim == 2`, so the next check rejects it — the branch can never help | both branches deleted |
-| Zero-sum weights | `wquantiles.py:50` (the existing TODO) | returns `nan` | raises `ValueError` |
-| Negative weights | — | `[1,-5,1]` → `2.0`; `Pn` is non-monotonic so `np.interp` is undefined | raises `ValueError` |
-| Non-finite weights | — | `NaN` → `nan`; `inf` → `nan` | raises `ValueError` |
-| `NaN` in data | — | `[1,nan,3]` → `3.0` | propagates `nan`, matching `np.quantile` |
-| Shadowed name | both signatures | the parameter `quantile` shadows the function `quantile` | rename to `q`, keeping `quantile=` accepted as a deprecated keyword |
-| Dead import | `wquantiles.py:5` | `from __future__ import print_function` in a Python-3-only package | deleted |
+The behaviour changes here are the substance of the next release. They were
+reviewed case by case, asking of each old output: was it an *artifact of the
+implementation*, or a *defensible answer under some reading of the data*? The
+two get different treatment.
 
-Also in scope: add type hints and a `py.typed` marker, and an `__all__`.
+### Artifacts — no reading of the data makes them right
 
-**Breaking changes:**
+| Issue | Now | After |
+|---|---|---|
+| Dead `raise` | 0-d input returns `None`; the `TypeError` is built and discarded | returns the value, as `np.quantile(5.0, 0.5)` does |
+| No coercion in `quantile()` | `median([1,2,3],[1,1,1])` → `AttributeError: 'list' object has no attribute 'ndim'` (issue #11) | lists accepted, as `quantile_1D` already did |
+| Wrong `__version__` | `"0.4"` while the package is 0.6 | read from package metadata |
+| Inverted `np.matrix` guard | skipping `asarray` guarantees `ndim == 2`, so the next check rejects it — the branch can never help | deleted |
+| `NaN` in data | `[1,nan,3]` → `3.0`. `argsort` sends `NaN` last where it keeps its weight, so this is the "`NaN` is `+inf`" reading, not "`NaN` is missing" — masking gives `2.0` | propagates `nan`; `nanquantile`/`nanmedian` drop it |
+| Infinite weight | `nan`, from `inf/inf` | `ValueError` — the limit is not unique: `[1,2,3]` with `[1,W,1]` tends to `1.5` at q=0.25 but `2.0` at q=0.5 |
+| Negative weight | `[1,-5,1]` → `2.0`. `Pn` usually stays monotonic but leaves `[0,1]`, so it is no longer a cumulative probability | `ValueError` |
+| Masked arrays | `np.asarray` strips the mask, so `masked_array([1,999,3], mask=[0,1,0])` gives `3.0` where `np.ma.median` gives `2.0` | masked entries dropped, in data or weights |
+| Zero-weight points | remain nodes in the interpolation grid and can be returned as the answer: `[1,1.5,3]` with `[1,0,1]` → `1.5`, a point carrying no mass | dropped before interpolating |
 
-- `BREAKING:` zero-sum, negative, and non-finite weights now raise `ValueError`
-  instead of returning `nan` or a meaningless number.
-- `BREAKING:` `NaN` in `data` now propagates as `nan` instead of returning a
-  neighbouring value.
-- `BREAKING:` 0-dimensional `data` now raises `TypeError` instead of returning
-  `None`.
-- `BREAKING:` `__version__` changes from `"0.4"` to the real version. Anyone
-  string-matching on `"0.4"` is affected — and was already getting a wrong answer.
+### Defensible old behaviour — value kept, caller now told
 
-None of these get a deprecation period: in each case the previous return value
-was wrong, so no caller can have depended on it meaningfully. All of them go in
-`CHANGES.md` under `### Breaking changes`, and the release notes lead with them.
+"No information, therefore undefined" is a legitimate scientific answer, and a
+`nan` flows through downstream array work where an exception would kill it.
 
-*Not* breaking, and worth advertising: `quantile()` and `median()` start
-accepting lists, closing issue #11.
+| Issue | Now | After |
+|---|---|---|
+| Zero-sum weights | `nan`, silently | `nan` with a `RuntimeWarning` |
+| Empty data | bare `IndexError` from `Sn[-1]` | `nan` with a `RuntimeWarning` |
+
+### Also in scope
+
+Rename the `quantile` parameter to `q` (it shadows the function of the same
+name, and `q` matches `np.quantile`), keeping `quantile=` as a deprecated
+keyword. Drop `from __future__ import print_function`. Add type hints, a
+`py.typed` marker, `__all__`, and docstrings stating the estimator.
+
+Add targeted tests for every behaviour change (`test/test_validation.py`). The
+broader test restructuring stays in Phase 4, but behaviour changes cannot ship
+untested.
+
+### Breaking changes
+
+- `BREAKING:` **zero-weight points are dropped.** The only change that alters
+  results for input that was always valid — ~20% of cases containing a zero
+  weight move, including 2 of the 25 cells in the existing 3-D test. Explained
+  in the README, as agreed.
+- `BREAKING:` masked arrays are honoured, changing results for anyone who was
+  passing them.
+- `BREAKING:` `NaN` in data or weights propagates instead of being treated as
+  `+inf`.
+- `BREAKING:` negative and infinite weights raise `ValueError`.
+- `BREAKING:` zero-sum weights and empty data now warn.
+- `BREAKING:` 0-d data returns its value instead of `None`.
+- `BREAKING:` `__version__` corrected from `"0.4"`.
+- `BREAKING:` the `quantile` parameter is renamed `q`; the old keyword warns.
+
+Only the parameter rename gets a deprecation period.
+
+**Verification.** Results for data with all-positive weights, no mask and no
+NaN are bit-identical to 0.6: ~28,000 comparisons across unit, random, integer
+and widely-scaled weights, every quantile from 0 to 1, one- and
+multi-dimensional input, and integer dtypes — zero mismatches. Separately
+confirmed that dropping zero weights, honouring masks, and `nanquantile` each
+give exactly the same answer as filtering the array by hand beforehand.
 
 **Release:** cut **0.7** at the end of this phase — merge `develop` into
 `master` by pull request and tag `v0.7.0` on `master`.
@@ -320,9 +352,12 @@ test suite, `axis=` support and array `q`. That is a 1.0.
 | Phase | Change | Deprecation period |
 |---|---|---|
 | 1 | Python 3.6 / 3.7 / 3.8 dropped | none — all end-of-life |
-| 2 | Zero-sum, negative and non-finite weights raise `ValueError` | none — previous result was wrong |
-| 2 | `NaN` in data propagates as `nan` | none — previous result was wrong |
-| 2 | 0-d data raises `TypeError` | none — previously returned `None` |
+| 2 | Zero-weight points dropped (**changes valid results**) | none — documented in the README |
+| 2 | Masked arrays honoured | none — previous result used masked values |
+| 2 | Negative and infinite weights raise `ValueError` | none — previous result was wrong |
+| 2 | `NaN` in data or weights propagates as `nan` | none — previous result was the `+inf` reading |
+| 2 | Zero-sum weights and empty data warn | none — value unchanged |
+| 2 | 0-d data returns its value instead of `None` | none — previously returned `None` |
 | 2 | `__version__` corrected from `"0.4"` | none — previously wrong |
 | 2 | `quantile` parameter renamed to `q` | keyword alias kept through 0.x |
 | 9 | `weighted.py` removed | deprecated since 2017 |

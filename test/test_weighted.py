@@ -75,9 +75,13 @@ class TestPercentiles(unittest.TestCase):
 
     def test_weighted_median_3D(self):
         arr1 = quantile(self.a3D, self.aw, 0.5)
-        arr2 = np.array([[ 43.66666667, 91., 35., 50., 23.],[30.66666667, 89., 75.66666667, 6., 48.33333333],
+        # Two cells changed in 0.7, when zero-weight points stopped being nodes
+        # in the interpolation grid: [0][1] was 91. and [4][3] was 37.
+        arr2 = np.array([[43.66666667, 64.66666667, 35., 50., 23.],
+                [30.66666667, 89., 75.66666667, 6., 48.33333333],
                 [49., 54.66666667, 16.33333333, 89.33333333, 26.33333333],
-                [63., 34., 37.33333333, 57.66666667, 82.], [34., 32., 29., 37., 51.33333333]])
+                [63., 34., 37.33333333, 57.66666667, 82.],
+                [34., 32., 29., 55.66666667, 51.33333333]])
         #print(arr1, arr2)
         nptest.assert_array_almost_equal(arr1, arr2)
 

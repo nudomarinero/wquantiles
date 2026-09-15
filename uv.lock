@@ -469,7 +469,7 @@ wheels = [
 
 [[package]]
 name = "wquantiles"
-version = "0.6"
+version = "0.7"
 source = { editable = "." }
 dependencies = [
     { name = "numpy", version = "2.0.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },

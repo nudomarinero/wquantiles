@@ -1,6 +1,6 @@
 [project]
 name = "wquantiles"
-version = "0.6"
+version = "0.7"
 description = "Weighted quantiles, including weighted median, based on numpy"
 readme = "README.md"
 requires-python = ">=3.9"
