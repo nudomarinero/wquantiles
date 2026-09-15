@@ -164,7 +164,7 @@ give exactly the same answer as filtering the array by hand beforehand.
 
 ---
 
-## Phase 3 — Real CI · `ci/github-actions` · **[~]**
+## Phase 3 — Real CI · `ci/github-actions` · **[x]**
 
 Nothing currently runs the test suite. `.github/workflows/` holds only
 `codeql-analysis.yml`, and the README's build badge points at travis-ci.org,
@@ -211,27 +211,76 @@ workflow run once, then add the rule requiring `All green` on `master` and
 
 ---
 
-## Phase 4 — Tests worth having · `test/coverage-and-properties` · **[ ]**
+## Phase 4 — Tests worth having · `test/coverage-and-properties` · **[~]**
 
-Five tests pass today, but `test_median` asserts only on `np.median` — every
-assertion in it is about numpy, not about this library. It contributes nothing
-and should go.
+Coverage was already at 100% after Phase 2, so this phase is not about reaching
+unreached lines. It is about what coverage cannot see.
 
-- Delete `test_median`.
-- Cover every error path added in Phase 2, plus `median()` itself, list input,
-  2-D input, and both branches of the `quantile()` dispatcher.
-- Replace the hardcoded 5×5×5 expected array — the current magic numbers have no
-  derivation and are untraceable if anything changes — with a seeded generator
-  and a derived expectation.
-- Add property-based tests (Hypothesis). The invariants worth asserting:
-  - the result lies in `[min(data), max(data)]`;
-  - with equal weights the result equals `np.quantile(data, q, method="hazen")`;
-  - scaling every weight by a positive constant changes nothing;
-  - duplicating a data point equals doubling its weight;
-  - the result is monotonic non-decreasing in `q`.
-- Consider moving from `unittest` classes to plain pytest functions.
+- Delete `test_median`: every assertion in it was about `np.median`, so it
+  tested numpy rather than this library.
+- `test/test_weighted.py` becomes `test/test_quantiles.py`, pytest functions
+  rather than `unittest` classes.
+- Replace the hardcoded 5×5×5 expected array, whose magic numbers had no
+  derivation and could not be told apart from a stale constant. Two tests take
+  its place: one derives its expectation by applying `quantile_1D` to each row,
+  which is precisely the dispatcher's contract, over several shapes; the other
+  is an anchor worked out by hand with the derivation written out, so a change
+  in the maths cannot slip past a test that derives its own expectation from
+  the code.
+- Property-based tests with Hypothesis (`test/test_properties.py`). **Every
+  candidate property was checked over several thousand random cases before
+  being asserted**, and two of the five originally planned did not survive.
+  - *Hold:* result within `[min, max]`; q=0 and q=1 give the extremes;
+    non-decreasing in `q`; scaling every weight by a positive constant changes
+    nothing; equal weights equal `np.quantile(..., method="hazen")`; zero
+    weights, masks and `nanquantile` each equal removing the points; `median`
+    agrees with `quantile` at 0.5; input order does not matter **for distinct
+    values**.
+  - *Does not hold:* **duplicating a point is not the same as doubling its
+    weight.** The duplicate spreads its mass over two interpolation nodes,
+    whereas the doubled weight puts one node at the midpoint: `[1,2,2,3]` with
+    unit weights gives `1.5` at q=0.25, where `[1,2,3]` with `[1,2,1]` gives
+    `1.333`.
+  - *Does not hold:* **input order does not matter when values tie.** See below.
 
-**Breaking changes:** none.
+  Both failures are recorded as strict `xfail`s rather than quietly dropped, so
+  they will speak up if the behaviour ever changes.
+
+Result: 82 passed, 2 xfailed, coverage still 100%.
+
+**Breaking changes:** none in this phase.
+
+### Found by the property tests: ties with unequal weights — **decision needed**
+
+`quantile_1D` is not a function of the multiset of `(value, weight)` pairs.
+When two values are exactly equal but carry different weights, `argsort`
+decides which weight lands on which tied position, and the answer moves:
+
+    data [1, 2, 2, 3], weights [1, 5, 0.5, 1]
+      as given             q=0.2 -> 1.333
+      the two 2s swapped   q=0.2 -> 2.000
+
+26% of cases with tied values and unequal weights are order-dependent this way.
+Continuous data essentially never ties; integer-valued or binned scientific
+data ties constantly.
+
+Three ways out, measured:
+
+| | matches `np.quantile(hazen)` at unit weights | order-invariant | changes tied results |
+|---|---|---|---|
+| leave as is | **100%** | no — 26% of cases | — |
+| sum the weights of tied values | 57% ✗ | yes | 69% |
+| sort ties by weight | **100%** | **yes** | 26% |
+
+Summing tied weights is what statsmodels does, but it would **break the hazen
+equivalence the README now states as the library's definition**: with unit
+weights and ties it stops matching numpy. Sorting ties by weight is a stable
+tie-break — it makes the sort order a function of the data rather than of the
+caller's array order, keeps the numpy equivalence exactly, and leaves the
+repo's own 1-D fixture unchanged, since that tie carries equal weights.
+
+Recommended: **sort ties by weight**, as a Phase 2-style correctness change.
+Breaking for tied data with unequal weights.
 
 ---
 
