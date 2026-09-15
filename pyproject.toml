@@ -1,33 +1,53 @@
-[tool.poetry]
+[project]
 name = "wquantiles"
-version = "0.6"
+version = "0.7"
 description = "Weighted quantiles, including weighted median, based on numpy"
-repository = "http://github.com/nudomarinero/wquantiles/"
-authors = ["Jose Sabater <jsm@jsabater.info>"]
+readme = "README.md"
+requires-python = ">=3.9"
 license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Jose Sabater", email = "jsm@jsabater.info" },
+]
+keywords = ["statistics", "quantile", "percentile", "median", "weighted", "numpy"]
 classifiers = [
-        'Programming Language :: Python',
-        'Development Status :: 4 - Beta',
-        'Natural Language :: English',
-        'Environment :: Web Environment',
-        'Intended Audience :: Science/Research',
-        'License :: OSI Approved :: MIT License',
-        'Operating System :: OS Independent',
-        'Topic :: Scientific/Engineering :: Mathematics',
-        'Topic :: Software Development :: Libraries :: Python Modules',
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Development Status :: 4 - Beta",
+    "Natural Language :: English",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Software Development :: Libraries :: Python Modules",
 ]
-packages = [
-    { include = "wquantiles.py" },
-    { include = "weighted.py" },
+# numpy 1.18 has no wheels for Python 3.9, so it is not reachable from any
+# supported interpreter; 1.19 is the oldest combination CI can actually build.
+dependencies = [
+    "numpy>=1.19",
 ]
 
-[tool.poetry.dependencies]
-python = ">=3.6"
-numpy = ">=1.18"
+[project.urls]
+Homepage = "https://github.com/nudomarinero/wquantiles"
+Repository = "https://github.com/nudomarinero/wquantiles"
+Changelog = "https://github.com/nudomarinero/wquantiles/blob/master/CHANGES.md"
 
-[tool.poetry.dev-dependencies]
-pytest = "^6.2.4"
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-cov>=5.0",
+]
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["uv_build>=0.10.9,<0.11.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-root = ""
+module-name = ["wquantiles", "weighted"]
+# Ship the test suite in the sdist so downstream packagers can run it.
+source-include = ["test/**", "CHANGES.md"]

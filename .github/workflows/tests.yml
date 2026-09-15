@@ -1,0 +1,128 @@
+name: Tests
+
+on:
+  push:
+    branches: [master, develop]
+  pull_request:
+    branches: [master, develop]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: py${{ matrix.python }} · numpy ${{ matrix.label }} · ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        python: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+        numpy: [""]
+        label: ["latest"]
+        include:
+          # The oldest combination that can actually exist: numpy 1.18 has no
+          # wheels for Python 3.9, so 1.19.5 is the real floor.
+          - {os: ubuntu-latest, python: "3.9", numpy: "==1.19.5", label: "1.19.5"}
+          # numpy 1.x on a current Python. This is the axis that matters: the
+          # library claims to work with both major numpy lines.
+          - {os: ubuntu-latest, python: "3.12", numpy: "<2", label: "1.x"}
+          # Windows used to default integer arrays to int32; the tests cover
+          # integer dtypes, so it is worth one run.
+          - {os: windows-latest, python: "3.12", numpy: "", label: "latest"}
+          - {os: macos-latest, python: "3.12", numpy: "", label: "latest"}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Run the test suite
+        run: >
+          uv run --isolated --no-project
+          --python ${{ matrix.python }}
+          --with .
+          --with "numpy${{ matrix.numpy }}"
+          --with pytest
+          python -m pytest test -v
+
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Measure coverage
+        run: |
+          uv run --python 3.12 --group dev \
+            pytest test --cov=wquantiles --cov-report=term-missing \
+            --cov-fail-under=100
+
+      - name: Publish the report
+        if: always()
+        run: |
+          echo '### Coverage' >> "$GITHUB_STEP_SUMMARY"
+          uv run --python 3.12 --group dev \
+            coverage report --format=markdown >> "$GITHUB_STEP_SUMMARY"
+
+  package:
+    name: Package round trip
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Build the sdist and the wheel
+        run: uv build
+
+      - name: List what is shipped
+        run: |
+          echo '### Wheel' >> "$GITHUB_STEP_SUMMARY"
+          python -m zipfile -l dist/*.whl >> "$GITHUB_STEP_SUMMARY"
+          echo '### Sdist' >> "$GITHUB_STEP_SUMMARY"
+          tar tzf dist/*.tar.gz >> "$GITHUB_STEP_SUMMARY"
+
+      # The failure reported in issue #1 was a packaging one, so prove the
+      # artefacts work rather than assuming they do: install the wheel into a
+      # clean environment and run the sdist's own tests against it.
+      - name: Install the wheel and run the sdist's tests against it
+        run: |
+          mkdir -p roundtrip && tar xzf dist/*.tar.gz -C roundtrip --strip-components=1
+          uv venv --python 3.12 roundtrip-venv
+          uv pip install --python roundtrip-venv dist/*.whl pytest
+          cd roundtrip && ../roundtrip-venv/bin/python -m pytest test -q
+
+      - name: Check the metadata
+        run: uvx twine check dist/*
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: distributions
+          path: dist/
+
+  # One check to require in branch protection. Matrix jobs appear under their
+  # rendered names ("py3.9 · numpy latest · ubuntu-latest"), so requiring them
+  # individually would mean editing the protection rule every time the matrix
+  # changes. This job gathers them into a single stable name.
+  all-green:
+    name: All green
+    if: always()
+    needs: [test, coverage, package]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check that every job succeeded
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: |
+          echo "A required job did not succeed: ${{ join(needs.*.result, ', ') }}"
+          exit 1
+      - run: echo "All jobs succeeded."
