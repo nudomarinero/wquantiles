@@ -2,11 +2,18 @@
 Library to compute weighted quantiles, including the weighted median, of
 numpy arrays.
 
-The estimator implemented here is the *interpolated weighted percentile*: the
-data are sorted, a weighted cumulative distribution
-``Pn = (Sn - 0.5 * w) / Sn[-1]`` is built, and the result is linearly
-interpolated from it. With unit weights this is exactly numpy's
+The estimator implemented here is the quantile of the *weighted empirical
+distribution*: each distinct value owns a slab of probability proportional to
+its total weight, the slab midpoints give
+``Pn = (Sn - 0.5 * w) / Sn[-1]``, and the result is linearly interpolated from
+them. With equal weights and distinct values this is numpy's
 ``method="hazen"`` (Hyndman-Fan type 5).
+
+The weights of equal values are summed, so the result depends only on the
+distribution and not on how the caller spelled it out: two entries of weight 1
+at the same value behave exactly like one entry of weight 2. numpy's unweighted
+quantiles follow the order-statistic definition instead and give a repeated
+value two separate plotting positions, so the two part company on ties.
 
 Note that this is *not* the discrete weighted median, and *not* what
 ``np.quantile(..., weights=...)`` computes -- numpy only supports weights with
@@ -15,9 +22,9 @@ interpolated one. The two disagree on most inputs.
 
 Missing data
 ------------
-Each datum owns a slab of probability whose width is proportional to its
-weight, so a datum with zero weight owns nothing and is dropped before
-interpolating rather than left as a node in the interpolation grid.
+Each distinct value owns a slab of probability whose width is proportional to
+its total weight, so a datum with zero weight owns nothing and is dropped
+before interpolating rather than left as a node in the interpolation grid.
 
 Entries masked out of a ``numpy.ma.MaskedArray`` are dropped the same way.
 
@@ -143,15 +150,31 @@ def _weighted_quantile_1D(
         warnings.warn(_EMPTY_MSG, RuntimeWarning, stacklevel=3)
         return np.float64(np.nan)
 
-    # Sort the data
-    ind_sorted = np.argsort(data)
+    # Sort the data, and within a run of equal values sort by weight. The
+    # secondary key costs nothing and buys exactness: tied weights are summed
+    # below, floating-point addition is not associative, and without a defined
+    # order the total would depend on the order of the caller's array. Summing
+    # smallest first is also the more accurate order.
+    ind_sorted = np.lexsort((weights, data))
     sorted_data = data[ind_sorted]
     sorted_weights = weights[ind_sorted]
+    # Sum the weights of equal values, so that each distinct value contributes
+    # one node carrying all of its mass. Without this the estimator is not a
+    # function of the weighted distribution: two equal values with different
+    # weights would be placed in whichever order argsort happened to choose,
+    # and the answer would depend on the order of the caller's array.
+    # np.add.reduceat is used rather than differencing the cumulative sum,
+    # because differencing would not return the original weights bit-for-bit.
+    starts = np.flatnonzero(
+        np.concatenate(([True], sorted_data[1:] != sorted_data[:-1]))
+    )
+    values = sorted_data[starts]
+    value_weights = np.add.reduceat(sorted_weights, starts)
     # Compute the auxiliary arrays
-    Sn = np.cumsum(sorted_weights)
-    Pn = (Sn - 0.5 * sorted_weights) / Sn[-1]
+    Sn = np.cumsum(value_weights)
+    Pn = (Sn - 0.5 * value_weights) / Sn[-1]
     # Get the value of the weighted quantile
-    return np.interp(q, Pn, sorted_data)
+    return np.interp(q, Pn, values)
 
 
 def _weighted_quantile(data: Any, weights: Any, q: float, omit_nan: bool) -> Any:

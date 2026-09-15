@@ -72,10 +72,9 @@ def test_scaling_every_weight_changes_nothing(sample, q, factor):
 
 
 @slow
-@given(sample=samples(distinct=True), q=quantiles, seed=st.integers(0, 2**32 - 1))
+@given(sample=samples(), q=quantiles, seed=st.integers(0, 2**32 - 1))
 def test_order_of_the_input_does_not_matter(sample, q, seed):
-    """Restricted to distinct values on purpose: with tied values carrying
-    unequal weights this does *not* hold. See the note at the bottom."""
+    """Holds for tied values too, since their weights are summed."""
     data, weights = sample
     perm = np.random.default_rng(seed).permutation(len(data))
     assert quantile_1D(data, weights, q) == quantile_1D(data[perm], weights[perm], q)
@@ -120,35 +119,58 @@ def test_median_agrees_with_quantile_at_one_half(sample):
 
 @pytest.mark.skipif(not NUMPY_HAS_METHOD, reason="numpy < 1.22 has no `method=`")
 @slow
-@given(data=st.lists(values, min_size=1, max_size=20), q=quantiles)
+@given(data=st.lists(values, min_size=1, max_size=20, unique=True), q=quantiles)
 def test_equal_weights_are_numpys_hazen(data, q):
-    """The defining property of the estimator."""
+    """With equal weights and **distinct** values this is numpy's hazen.
+
+    Distinct on purpose: numpy follows the order-statistic definition and gives
+    a repeated value two plotting positions, while this library gives each
+    distinct value one node carrying all of its mass. The two therefore part
+    company on ties, which is a deliberate choice -- see the README.
+    """
     array = np.array(data, dtype=float)
+    # Both sides carry an error of order eps * (data range): the interpolation
+    # runs between order statistics, so the spread of the data sets the scale,
+    # not the magnitude of the answer. Checked against exact rational
+    # arithmetic: on a sample spanning 2281, numpy lands 1.1e-16 of the range
+    # from the true value and this library 6.3e-16, both at float64 resolution.
+    tolerance = 1e-12 * max(1.0, float(np.ptp(array)))
     assert quantile_1D(array, np.ones_like(array), q) == pytest.approx(
-        np.quantile(array, q, method="hazen"), rel=1e-12, abs=1e-12
+        np.quantile(array, q, method="hazen"), rel=1e-12, abs=tolerance
     )
 
 
-# --- properties that were proposed and do NOT hold --------------------------
+# --- ties ------------------------------------------------------------------
+#
+# Both of the following were proposed as properties, found to fail, and then
+# made to hold in 0.7 by summing the weights of equal values. They are the
+# reason that change was made, so they are asserted rather than described.
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="tied values with unequal weights: argsort decides which weight "
-           "lands on which tied position, so the result depends on input order",
+@slow
+@given(sample=samples(), q=quantiles)
+def test_duplicating_a_point_equals_doubling_its_weight(sample, q):
+    data, weights = sample
+    duplicated = quantile_1D(
+        np.concatenate([data, data[:1]]), np.concatenate([weights, weights[:1]]), q
+    )
+    doubled = quantile_1D(
+        data, np.concatenate([[2 * weights[0]], weights[1:]]), q
+    )
+    assert duplicated == pytest.approx(doubled, rel=1e-9, abs=1e-9)
+
+
+@slow
+@given(
+    data=st.lists(st.integers(0, 4).map(float), min_size=2, max_size=14),
+    q=quantiles,
+    seed=st.integers(0, 2**32 - 1),
 )
-def test_order_does_not_matter_even_with_ties():
-    data = np.array([1.0, 2.0, 2.0, 3.0])
-    weights = np.array([1.0, 5.0, 0.5, 1.0])
-    perm = [0, 2, 1, 3]
-    assert quantile_1D(data, weights, 0.2) == quantile_1D(data[perm], weights[perm], 0.2)
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="duplicating a point spreads its mass over two interpolation nodes, "
-           "whereas doubling its weight puts one node at the midpoint",
-)
-def test_duplicating_a_point_equals_doubling_its_weight():
-    duplicated = quantile_1D([1.0, 2.0, 2.0, 3.0], [1.0, 1.0, 1.0, 1.0], 0.25)
-    doubled = quantile_1D([1.0, 2.0, 3.0], [1.0, 2.0, 1.0], 0.25)
-    assert duplicated == doubled
+def test_order_does_not_matter_even_with_ties(data, q, seed):
+    """Integer-valued data so that Hypothesis produces ties constantly."""
+    rng = np.random.default_rng(seed)
+    array = np.array(data, dtype=float)
+    weights = rng.random(len(array)) + 1e-3
+    perm = rng.permutation(len(array))
+    assert quantile_1D(array, weights, q) == pytest.approx(
+        quantile_1D(array[perm], weights[perm], q), rel=1e-9, abs=1e-9
+    )

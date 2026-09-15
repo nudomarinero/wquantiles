@@ -13,30 +13,69 @@ SORTED = np.array([0, 10, 20, 25, 30, 30, 35, 50.0])
 SORTED_W = np.array([0, 1, 0, 1, 2, 2, 2, 1.0])
 UNSORTED = np.array([30, 25, 0, 50, 30, 20, 35, 10.0])
 UNSORTED_W = np.array([2, 1, 0, 1, 2, 0, 2, 1.0])
+# The fixture above repeats 30. The equivalences with numpy's unweighted
+# quantiles hold only where values are distinct, because numpy follows the
+# order-statistic definition and splits a tie across two plotting positions,
+# whereas this library gives each distinct value a single node carrying all of
+# its mass. So those tests use a fixture with no repeats.
+DISTINCT = np.array([0, 10, 20, 25, 30, 35, 50.0])
 
 
 @pytest.mark.parametrize("data, weights", [(SORTED, SORTED_W), (UNSORTED, UNSORTED_W)])
 def test_weighted_median(data, weights):
-    assert quantile_1D(data, weights, 0.5) == 30
+    """Dropping the zero weights leaves values [10, 25, 30, 35, 50] with
+    weights [1, 1, 4, 2, 1] once the two 30s are summed, so
+
+        Sn = [1, 2, 6, 8, 9]
+        Pn = (Sn - 0.5w) / 9 = [1/18, 3/18, 8/18, 14/18, 17/18]
+
+    and q=0.5 falls between (8/18, 30) and (14/18, 35), giving 30 + 5/6.
+    """
+    assert quantile_1D(data, weights, 0.5) == pytest.approx(185 / 6)
 
 
-@pytest.mark.parametrize("data", [SORTED, UNSORTED])
-def test_unit_weights_reproduce_the_plain_median(data):
-    assert quantile_1D(data, np.ones_like(data), 0.5) == np.median(data)
+def test_unit_weights_reproduce_the_plain_median():
+    assert quantile_1D(DISTINCT, np.ones_like(DISTINCT), 0.5) == np.median(DISTINCT)
 
 
 @pytest.mark.skipif(not NUMPY_HAS_METHOD, reason="numpy < 1.22 has no `method=`")
 @pytest.mark.parametrize("q", [0.05, 0.1, 0.25, 0.4, 0.5, 0.6, 0.75, 0.9])
 def test_unit_weights_match_numpy_hazen(q):
-    """The anchor for the whole library: with equal weights this is exactly
-    numpy's Hyndman-Fan type 5."""
-    assert quantile_1D(SORTED, np.ones_like(SORTED), q) == np.quantile(
-        SORTED, q, method="hazen"
+    """The anchor for the whole library: with equal weights and distinct
+    values this is numpy's Hyndman-Fan type 5.
+
+    Compared approximately, not exactly: numpy reaches the same number by a
+    different route (h = n*q + 0.5, then a lerp between two order statistics),
+    so the two disagree in the last bit or two.
+    """
+    assert quantile_1D(DISTINCT, np.ones_like(DISTINCT), q) == pytest.approx(
+        np.quantile(DISTINCT, q, method="hazen"), rel=1e-12, abs=1e-12
     )
 
 
 def test_median_is_an_alias():
     assert median(SORTED, SORTED_W) == quantile(SORTED, SORTED_W, 0.5)
+
+
+@pytest.mark.parametrize("q", [0.1, 0.25, 0.4, 0.5, 0.6, 0.75, 0.9])
+def test_a_repeated_value_equals_one_value_of_twice_the_weight(q):
+    """The estimator is a function of the weighted distribution, not of how
+    the caller happened to spell it out."""
+    assert quantile_1D([1.0, 2.0, 2.0, 3.0], [1.0, 1.0, 1.0, 1.0], q) == pytest.approx(
+        quantile_1D([1.0, 2.0, 3.0], [1.0, 2.0, 1.0], q)
+    )
+
+
+@pytest.mark.parametrize("q", [0.2, 0.4, 0.5, 0.6, 0.8])
+def test_tied_values_do_not_depend_on_input_order(q):
+    """The two 2s carry different weights; which one argsort puts first must
+    not change the answer."""
+    data = np.array([1.0, 2.0, 2.0, 3.0])
+    weights = np.array([1.0, 5.0, 0.5, 1.0])
+    swapped = [0, 2, 1, 3]
+    assert quantile_1D(data, weights, q) == quantile_1D(
+        data[swapped], weights[swapped], q
+    )
 
 
 def test_one_dimensional_input_dispatches_to_quantile_1D():
@@ -95,5 +134,5 @@ class TestDeprecatedModule:
     def test_weighted_re_exports_the_public_api(self):
         import weighted
 
-        assert weighted.quantile_1D(SORTED, SORTED_W, 0.5) == 30
-        assert weighted.median(SORTED, SORTED_W) == 30
+        assert weighted.quantile_1D(SORTED, SORTED_W, 0.5) == pytest.approx(185 / 6)
+        assert weighted.median(SORTED, SORTED_W) == pytest.approx(185 / 6)

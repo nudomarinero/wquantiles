@@ -250,7 +250,7 @@ Result: 82 passed, 2 xfailed, coverage still 100%.
 
 **Breaking changes:** none in this phase.
 
-### Found by the property tests: ties with unequal weights — **decision needed**
+### Found by the property tests: ties with unequal weights — **fixed**
 
 `quantile_1D` is not a function of the multiset of `(value, weight)` pairs.
 When two values are exactly equal but carry different weights, `argsort`
@@ -279,8 +279,36 @@ tie-break — it makes the sort order a function of the data rather than of the
 caller's array order, keeps the numpy equivalence exactly, and leaves the
 repo's own 1-D fixture unchanged, since that tie carries equal weights.
 
-Recommended: **sort ties by weight**, as a Phase 2-style correctness change.
-Breaking for tied data with unequal weights.
+*Decided:* **sum the weights of tied values**, implemented in this phase and
+folded into the unreleased 0.7.
+
+The measurement above made the case for sorting ties by weight, on the strength
+of keeping the numpy `hazen` equivalence at 100%. That reasoning was wrong, for
+two reasons found on closer inspection:
+
+1. **`hazen`'s tie behaviour is not a considered position.** Hyndman-Fan type 5
+   is defined on order statistics, which include repeats, so numpy is faithful
+   to the definition — but the plotting-position family is derived from the
+   distribution of `F(X_(i))` for iid draws from a *continuous* `F`, where ties
+   have probability zero. The definition is silent on repeated values; the
+   order-statistic formula simply produces something when handed them.
+2. **Sorting ties by weight fixes the symptom, not the defect.** It removes the
+   order-dependence while leaving the estimator not a function of the weighted
+   distribution: duplicating a point still would not equal doubling its weight.
+
+Summing tied weights makes every verified property hold, including the two that
+previously failed, and makes `wquantiles` agree with itself — `[1,2,3]` weighted
+`[1,2,1]` and `[1,2,2,3]` with unit weights are the same sample written two
+ways, and numpy's weighted `inverted_cdf` and statsmodels already gave identical
+answers for them where this library did not.
+
+The price is one clause in the README: the `hazen` equivalence now holds for
+equal weights **and distinct values**. Results for distinct values with
+all-positive weights remain bit-identical to 0.6 (~54,000 comparisons).
+
+- `BREAKING:` the weights of equal values are summed. Continuous data is
+  untouched; around 40% of unit-weight cases on integer or binned data move.
+  The repo's own 1-D fixture moves from `30.0` to `30 + 5/6`.
 
 ---
 
@@ -428,6 +456,7 @@ test suite, `axis=` support and array `q`. That is a 1.0.
 | Phase | Change | Deprecation period |
 |---|---|---|
 | 1 | Python 3.6 / 3.7 / 3.8 dropped | none — all end-of-life |
+| 2 | Tied values have their weights summed (**changes valid results**) | none — documented in the README |
 | 2 | Zero-weight points dropped (**changes valid results**) | none — documented in the README |
 | 2 | Masked arrays honoured | none — previous result used masked values |
 | 2 | Negative and infinite weights raise `ValueError` | none — previous result was wrong |

@@ -60,3 +60,6 @@ Session.vim
 
 # uv
 .venv/
+
+# hypothesis
+.hypothesis/
