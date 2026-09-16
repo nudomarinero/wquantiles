@@ -883,21 +883,30 @@ dependencies = [
     { name = "numpy", version = "2.5.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
 ]
 
-[package.dev-dependencies]
-dev = [
+[package.optional-dependencies]
+test = [
     { name = "hypothesis", version = "6.141.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "hypothesis", version = "6.168.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "pytest", version = "8.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "pytest", version = "9.1.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+]
+
+[package.dev-dependencies]
+dev = [
     { name = "pytest-cov" },
+    { name = "wquantiles", extra = ["test"] },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "numpy", specifier = ">=1.19" }]
+requires-dist = [
+    { name = "hypothesis", marker = "extra == 'test'", specifier = ">=6.100" },
+    { name = "numpy", specifier = ">=1.19" },
+    { name = "pytest", marker = "extra == 'test'", specifier = ">=8.3" },
+]
+provides-extras = ["test"]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "hypothesis", specifier = ">=6.100" },
-    { name = "pytest", specifier = ">=8.3" },
     { name = "pytest-cov", specifier = ">=5.0" },
+    { name = "wquantiles", extras = ["test"] },
 ]

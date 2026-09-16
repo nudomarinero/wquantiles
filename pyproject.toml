@@ -36,11 +36,19 @@ Homepage = "https://github.com/nudomarinero/wquantiles"
 Repository = "https://github.com/nudomarinero/wquantiles"
 Changelog = "https://github.com/nudomarinero/wquantiles/blob/master/CHANGES.md"
 
+# Everything needed to run the test suite, in one place. CI installs the
+# package with this extra rather than listing test dependencies of its own,
+# so the two cannot drift apart.
+[project.optional-dependencies]
+test = [
+    "pytest>=8.3",
+    "hypothesis>=6.100",
+]
+
 [dependency-groups]
 dev = [
-    "pytest>=8.3",
+    "wquantiles[test]",
     "pytest-cov>=5.0",
-    "hypothesis>=6.100",
 ]
 
 [build-system]
