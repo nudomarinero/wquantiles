@@ -46,9 +46,8 @@ jobs:
         run: >
           uv run --isolated --no-project
           --python ${{ matrix.python }}
-          --with .
+          --with ".[test]"
           --with "numpy${{ matrix.numpy }}"
-          --with pytest
           python -m pytest test -v
 
   coverage:
@@ -99,7 +98,7 @@ jobs:
         run: |
           mkdir -p roundtrip && tar xzf dist/*.tar.gz -C roundtrip --strip-components=1
           uv venv --python 3.12 roundtrip-venv
-          uv pip install --python roundtrip-venv dist/*.whl pytest
+          uv pip install --python roundtrip-venv "$(ls dist/*.whl)[test]"
           cd roundtrip && ../roundtrip-venv/bin/python -m pytest test -q
 
       - name: Check the metadata

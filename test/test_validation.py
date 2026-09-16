@@ -7,14 +7,28 @@ from wquantiles import median, quantile, quantile_1D
 
 DATA = np.array([0, 10, 20, 25, 30, 30, 35, 50.0])
 WEIGHTS = np.array([0, 1, 0, 1, 2, 2, 2, 1.0])
+# DATA repeats 30, and this library sums the weights of equal values, so the
+# equivalences with numpy's unweighted quantiles need a fixture with no repeats.
+DISTINCT = np.array([0, 10, 20, 25, 30, 35, 50.0])
 
 
 # --- results that must not change ------------------------------------------
 
-def test_results_unchanged_from_0_6():
-    assert quantile_1D(DATA, WEIGHTS, 0.5) == 30.0
-    assert quantile_1D(DATA, np.ones(8), 0.5) == 27.5
+def test_results_unchanged_from_0_6_where_values_are_distinct():
+    """Bit-for-bit agreement with 0.6 is guaranteed only where no value repeats
+    and every weight is positive; that is where none of the 0.7 changes apply."""
     assert median(np.array([1.0, 2, 3]), np.array([100.0, 1, 1])) == 1.0198019801980198
+    assert quantile_1D(DISTINCT, np.ones(7), 0.5) == 25.0
+
+
+def test_tied_values_share_one_node():
+    """DATA repeats 30. Dropping the zero weights and summing the tie leaves
+    values [10, 25, 30, 35, 50] with weights [1, 1, 4, 2, 1], so Sn = [1, 2, 6,
+    8, 9], Pn = (Sn - 0.5w)/9, and q=0.5 lands at 30 + 5/6.
+
+    0.6 gave 30.0 here, treating the two 30s as separate nodes.
+    """
+    assert quantile_1D(DATA, WEIGHTS, 0.5) == pytest.approx(185 / 6)
 
 
 @pytest.mark.skipif(
@@ -22,11 +36,13 @@ def test_results_unchanged_from_0_6():
     reason="np.quantile gained the `method` keyword in numpy 1.22",
 )
 def test_unit_weights_match_numpy_hazen():
-    """With unit weights this is exactly numpy's Hyndman-Fan type 5."""
+    """With unit weights and distinct values this is numpy's Hyndman-Fan
+    type 5. Compared approximately: numpy reaches the same number by a
+    different route, so the two can disagree in the last bit."""
     qs = [0.05, 0.1, 0.25, 0.4, 0.5, 0.6, 0.75, 0.9]
-    ours = [quantile_1D(DATA, np.ones_like(DATA), q) for q in qs]
-    theirs = np.quantile(DATA, qs, method="hazen")
-    np.testing.assert_array_equal(ours, theirs)
+    ours = [quantile_1D(DISTINCT, np.ones_like(DISTINCT), q) for q in qs]
+    theirs = np.quantile(DISTINCT, qs, method="hazen")
+    np.testing.assert_allclose(ours, theirs, rtol=1e-12, atol=1e-12)
 
 
 def test_median_is_quantile_at_one_half():
@@ -213,7 +229,7 @@ def test_q_at_the_edges_is_allowed(edge_q):
 def test_quantile_keyword_still_works_but_warns(func):
     with pytest.warns(DeprecationWarning, match="use `q` instead"):
         result = func(DATA, WEIGHTS, quantile=0.5)
-    assert result == 30.0
+    assert result == pytest.approx(185 / 6)
 
 
 @pytest.mark.parametrize("func", [quantile_1D, quantile])

@@ -16,6 +16,17 @@ answers or explicit errors. Read the breaking changes before upgrading.
   This is the only change that alters results for input that was always valid.
   It bites only when some weight is exactly zero, where roughly 20% of cases
   move; see the README for the reasoning.
+- **The weights of equal values are now summed**, so each distinct value
+  contributes one node carrying all of its mass. Up to 0.6 two equal values
+  held two separate nodes, which meant the result was not a function of the
+  weighted distribution at all: `quantile_1D([1,2,2,3], [1,5,0.5,1], 0.2)`
+  returned `1.333`, but `2.000` if the two `2`s were swapped in the input.
+  It now returns `1.308` either way, and `[1,2,2,3]` with unit weights agrees
+  with `[1,2,3]` weighted `[1,2,1]`, as numpy's weighted `inverted_cdf` and
+  statsmodels already did. The cost is that the numpy `hazen` equivalence now
+  holds only for **distinct** values; see the README for why that is the right
+  trade. Changes results only when values repeat: continuous data is untouched,
+  around 40% of unit-weight cases on integer or binned data move.
 - **Masked arrays are now honoured.** `np.asarray` discards the mask, so
   whatever sat underneath leaked into the result: for
   `np.ma.masked_array([1, 999, 3], mask=[0,1,0])` the median was `3.0`, where
@@ -50,10 +61,10 @@ through downstream array work. What changed is that the caller is now told.
   `np.quantile(5.0, 0.5) == 5.0`. It previously returned `None`, because the
   `TypeError` was constructed but never raised.
 
-**Results for data with all-positive weights, no mask and no NaN are unchanged**,
-verified bit-exactly against 0.6 over ~28,000 comparisons spanning unit, random,
-integer and widely-scaled weights, every quantile from 0 to 1, one- and
-multi-dimensional input, and integer dtypes.
+**Results for data with distinct values and all-positive weights, no mask and
+no NaN are unchanged**, verified bit-exactly against 0.6 over ~54,000
+comparisons spanning unit, random, integer and widely-scaled weights, every
+quantile from 0 to 1, and integer dtypes.
 
 ### Fixed
 
@@ -73,8 +84,9 @@ multi-dimensional input, and integer dtypes.
 - `__all__`, declaring the public API. As a result `from wquantiles import *`
   no longer pulls in the `numpy` import as `np`.
 - Docstrings and a README section stating which estimator is implemented — the
-  interpolated weighted percentile, equal to numpy's `method="hazen"`
-  (Hyndman-Fan type 5) under unit weights — and how missing data is handled.
+  quantile of the weighted empirical distribution, equal to numpy's
+  `method="hazen"` (Hyndman-Fan type 5) under equal weights and distinct
+  values — and how missing data and repeated values are handled.
 
 ### Other changes
 

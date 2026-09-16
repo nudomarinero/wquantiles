@@ -20,15 +20,24 @@ data instead of propagating it, the way `np.nanquantile` does.
 Which weighted quantile is this?
 --------------------------------
 
-The estimator is the **interpolated weighted percentile**. Each datum owns a
-slab of probability whose width is proportional to its weight; the slab
-midpoints give a weighted cumulative distribution, and the result is linearly
-interpolated from it:
+The estimator is the quantile of the **weighted empirical distribution**. Each
+distinct value owns a slab of probability whose width is proportional to its
+total weight; the slab midpoints give a weighted cumulative distribution, and
+the result is linearly interpolated from it:
 
     Pn = (Sn - 0.5 * w) / Sn[-1]        with Sn the cumulative weights
 
-With equal weights this is exactly numpy's `method="hazen"` (Hyndman–Fan
-type 5).
+With equal weights **and no repeated values** this is numpy's `method="hazen"`
+(Hyndman–Fan type 5).
+
+The weights of equal values are summed, so the answer depends only on the
+distribution and not on how it was written down: two entries of weight 1 at the
+same value behave exactly like one entry of weight 2. numpy's unweighted
+quantiles instead follow the order-statistic definition, which gives a repeated
+value two separate plotting positions — the plotting-position family was derived
+for continuous distributions, where ties have probability zero, so it has no
+considered position on repeated values. This library takes the distributional
+reading; see the note below.
 
 It is **not** the discrete weighted median, which returns an actual element of
 the data, and it is **not** what `np.quantile(..., weights=...)` computes:
@@ -39,6 +48,8 @@ numpy.
 Missing data, masks and zero weights
 ------------------------------------
 
+- The weights of **equal values** are summed, so each distinct value
+  contributes a single node carrying all of its mass.
 - A datum whose weight is **zero** owns no probability mass, so it is dropped
   before interpolating.
 - Entries masked out of a `numpy.ma.MaskedArray` are dropped as well, whether
@@ -72,8 +83,38 @@ all. From 0.7 such points are removed before the cumulative distribution is
 built, so `[1, 3]` gives `Pn = [0.25, 0.75]` and the median is `2.0`.
 
 This changes results **only when some weight is exactly zero**; roughly 20% of
-such cases move. Results for data with all-positive weights are bit-identical
-to 0.6, verified over ~28,000 comparisons. If you need the old numbers, pin
-`wquantiles==0.6`.
+such cases move.
 
 A zero weight now means the same thing as a mask: this datum does not count.
+
+Behaviour change in 0.7: repeated values
+----------------------------------------
+
+**Up to and including 0.6, two equal values carried two separate nodes**, so
+the answer could depend on the order the caller happened to store them in:
+
+```python
+>>> quantile_1D([1, 2, 2, 3], [1, 5, 0.5, 1], 0.2)
+1.333    # 0.6, as written
+2.000    # 0.6, with the two 2s swapped
+1.308    # 0.7, either way
+```
+
+The weights of equal values are now summed. The estimator is therefore a
+function of the weighted distribution, which it was not before: `[1,2,2,3]`
+with unit weights and `[1,2,3]` with weights `[1,2,1]` are the same sample
+written two ways, and now give the same answer. `numpy`'s weighted
+`inverted_cdf` and `statsmodels` both already behaved this way.
+
+The cost is that the numpy `hazen` equivalence now holds only for **distinct**
+values. That is the deliberate trade: `hazen` is defined on order statistics,
+which split a tie across two plotting positions, but the plotting-position
+family was derived for continuous distributions where ties cannot occur, so it
+has no considered position on repeated values.
+
+This changes results **only when values repeat**: continuous data is untouched,
+while roughly 40% of unit-weight cases on integer or binned data move.
+
+Results for data with **distinct values and all-positive weights** are
+bit-identical to 0.6, verified over ~54,000 comparisons. If you need the old
+numbers, pin `wquantiles==0.6`.
