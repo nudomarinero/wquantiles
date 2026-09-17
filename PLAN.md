@@ -89,7 +89,7 @@ wheel installed in a clean environment.
 
 ---
 
-## Phase 2 — Correctness pass · `fix/correctness` · **[x]** *(0.7 release pending)*
+## Phase 2 — Correctness pass · `fix/correctness` · **[x]**
 
 The behaviour changes here are the substance of the next release. Every one of
 them replaces a silently wrong answer with either a correct one or an exception.
@@ -159,8 +159,10 @@ multi-dimensional input, and integer dtypes — zero mismatches. Separately
 confirmed that dropping zero weights, honouring masks, and `nanquantile` each
 give exactly the same answer as filtering the array by hand beforehand.
 
-**Release:** cut **0.7** at the end of this phase — merge `develop` into
-`master` by pull request and tag `v0.7.0` on `master`.
+**Release:** **0.7** was released on 2026-09-17, after Phase 4 rather than at
+the end of this phase — Phases 3 and 4 changed enough (real CI, and the
+tie-summing fix the property tests uncovered) that shipping before them would
+have released untested and since-superseded behaviour. See Phase 4a.
 
 ---
 
@@ -211,7 +213,7 @@ workflow run once, then add the rule requiring `All green` on `master` and
 
 ---
 
-## Phase 4 — Tests worth having · `test/coverage-and-properties` · **[~]**
+## Phase 4 — Tests worth having · `test/coverage-and-properties` · **[x]**
 
 Coverage was already at 100% after Phase 2, so this phase is not about reaching
 unreached lines. It is about what coverage cannot see.
@@ -280,7 +282,7 @@ caller's array order, keeps the numpy equivalence exactly, and leaves the
 repo's own 1-D fixture unchanged, since that tie carries equal weights.
 
 *Decided:* **sum the weights of tied values**, implemented in this phase and
-folded into the unreleased 0.7.
+released in 0.7.
 
 The measurement above made the case for sorting ties by weight, on the strength
 of keeping the numpy `hazen` equivalence at 100%. That reasoning was wrong, for
@@ -309,6 +311,29 @@ all-positive weights remain bit-identical to 0.6 (~54,000 comparisons).
 - `BREAKING:` the weights of equal values are summed. Continuous data is
   untouched; around 40% of unit-weight cases on integer or binned data move.
   The repo's own 1-D fixture moves from `30.0` to `30 + 5/6`.
+
+---
+
+## Phase 4a — Release 0.7 · `chore/release-0.7` · **[~]**
+
+- Date the `0.7` heading in `CHANGES.md`.
+- Refresh the stale dates the release would otherwise ship:
+  - `LICENSE` still said `2014-2021`, last touched for 0.6;
+  - `docs/conf.py` claimed `version = '0.2'` and `copyright = u'2014, Author'`,
+    both untouched since `sphinx-quickstart` in 2014. The version is now read
+    from the installed package metadata so it cannot drift again, and the
+    author is a real name in all seven places that said `u'Author'`.
+- Merge `develop` into `master` by pull request and tag the release.
+
+**Tag name:** `v0.7`, not `v0.7.0`. The repository's existing tags are `v0.3`
+and `v0.6`, and PyPI carries 0.3, 0.4, 0.5 and 0.6 — two components throughout.
+The plan previously said `v0.7.0`, which would have broken that convention.
+
+**Publishing to PyPI is the maintainer's step**, with `uv publish`; it needs
+credentials this session does not have. The last upload was 0.6 on 2021-05-26.
+
+**Breaking changes:** none of its own. This is where the seven breaking changes
+of Phases 1–4 reach users; `CHANGES.md` leads with them.
 
 ---
 
@@ -440,7 +465,8 @@ test suite, `axis=` support and array `q`. That is a 1.0.
 - Also decide whether to keep the `quantile=` keyword alias from Phase 2 or
   drop it here.
 - Update the Zenodo DOI for the new release.
-- Merge `develop` into `master` by pull request, tag `v1.0.0` on `master`.
+- Merge `develop` into `master` by pull request, tag `v1.0` on `master`
+  (two components, matching `v0.3`, `v0.6` and `v0.7`).
 - Publish to PyPI with `uv publish`.
 
 **Breaking changes:**

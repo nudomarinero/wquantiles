@@ -1,4 +1,4 @@
-0.7 (unreleased)
+0.7 (2026-09-17)
 ================
 
 This release turns a number of silently wrong answers into either correct
