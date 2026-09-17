@@ -1,3 +1,15 @@
+Unreleased
+==========
+
+- Rewrote the README around a figure showing how a weighted quantile is
+  actually computed, and how it differs from the discrete definition that
+  `np.quantile(..., weights=...)` implements. The figure is regenerable:
+  `uv run --group docs python docs/make_figure.py`.
+- Added a comparison table against `np.quantile(method="inverted_cdf")`, and an
+  explanation of the result in issue #4.
+- Added `test/test_documentation.py`, which checks every number quoted in the
+  README and drawn in the figure, so the documentation cannot go stale quietly.
+
 0.7 (2026-09-17)
 ================
 

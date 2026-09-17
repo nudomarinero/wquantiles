@@ -50,6 +50,11 @@ dev = [
     "wquantiles[test]",
     "pytest-cov>=5.0",
 ]
+# Only needed to regenerate the README figure: uv run --group docs
+# python docs/make_figure.py
+docs = [
+    "matplotlib>=3.5",
+]
 
 [build-system]
 requires = ["uv_build>=0.10.9,<0.11.0"]

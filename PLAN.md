@@ -337,7 +337,7 @@ of Phases 1–4 reach users; `CHANGES.md` leads with them.
 
 ---
 
-## Phase 5 — README and the visual explanation · `docs/readme-and-visual` · **[ ]**
+## Phase 5 — README and the visual explanation · `docs/readme-and-visual` · **[~]**
 
 The highest-value documentation change is not a diagram: it is **stating which
 estimator this library implements**. Issue #4 and the follow-up on it are the
@@ -376,6 +376,21 @@ same confusion twice, and the README currently never defines the estimator at al
   where the weights can be dragged and the median tracks them.
 
 - Fix the stale Zenodo/PyPI badges while in here.
+
+**Delivered.** `docs/make_figure.py` builds the two-panel figure into
+`docs/figures/` as both SVG (committed, used by the README) and PNG; it takes
+its numbers from the library rather than from constants, so it cannot state
+something the code does not do. matplotlib is in a `docs` dependency group, not
+in `dev`, so CI never installs it.
+
+`test/test_documentation.py` asserts every number quoted in the README and
+annotated on the figure — the quick start, all five rows of the comparison
+table, the issue #4 value, both behaviour-change examples, and the hazen
+equivalence claim.
+
+**Still open:** the interactive explainer. A self-contained page under `docs/`
+served by GitHub Pages is the right home for a library; that decision pairs
+naturally with Phase 8's fix-or-retire call on `docs/`.
 
 **Breaking changes:** none.
 
