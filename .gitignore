@@ -57,3 +57,9 @@ Session.vim
 # IDE
 .idea/*
 *.iml
+
+# uv
+.venv/
+
+# hypothesis
+.hypothesis/
