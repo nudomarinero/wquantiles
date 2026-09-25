@@ -4,6 +4,7 @@ import warnings
 import numpy as np
 import pytest
 
+import wquantiles
 from wquantiles import median, quantile, quantile_1D
 
 NUMPY_HAS_METHOD = tuple(int(p) for p in np.__version__.split(".")[:2]) >= (1, 22)
@@ -136,3 +137,77 @@ class TestDeprecatedModule:
 
         assert weighted.quantile_1D(SORTED, SORTED_W, 0.5) == pytest.approx(185 / 6)
         assert weighted.median(SORTED, SORTED_W) == pytest.approx(185 / 6)
+
+
+# --- an array of quantiles --------------------------------------------------
+
+@pytest.mark.parametrize("container", [list, tuple, np.array])
+def test_several_quantiles_at_once(container):
+    qs = [0.1, 0.25, 0.5, 0.75, 0.9]
+    result = quantile_1D(SORTED, SORTED_W, container(qs))
+    expected = [quantile_1D(SORTED, SORTED_W, q) for q in qs]
+    np.testing.assert_array_equal(result, expected)
+
+
+def test_scalar_q_still_returns_a_scalar():
+    result = quantile_1D(SORTED, SORTED_W, 0.5)
+    assert np.ndim(result) == 0
+
+
+@pytest.mark.parametrize("shape", [(6,), (4, 5), (3, 4, 5)])
+def test_quantile_axes_come_first_as_in_numpy(shape):
+    """np.quantile puts the quantile axis in front of the reduced shape."""
+    rng = np.random.default_rng(20260925)
+    data = rng.normal(size=shape)
+    weights = np.ones(shape[-1])
+    qs = [0.25, 0.5, 0.75]
+
+    result = quantile(data, weights, qs)
+    assert result.shape == np.quantile(data, qs, axis=-1).shape
+
+    for i, q in enumerate(qs):
+        np.testing.assert_array_equal(result[i], quantile(data, weights, q))
+
+
+def test_two_dimensional_q():
+    qs = np.array([[0.1, 0.25], [0.5, 0.9]])
+    data = np.arange(24.0).reshape(2, 3, 4)
+    result = quantile(data, np.ones(4), qs)
+    assert result.shape == qs.shape + data.shape[:-1]
+    np.testing.assert_array_equal(result[1, 0], quantile(data, np.ones(4), 0.5))
+
+
+def test_one_bad_value_in_the_array_is_rejected():
+    with pytest.raises(ValueError, match="between 0. and 1."):
+        quantile_1D(SORTED, SORTED_W, [0.5, 1.5])
+
+
+def test_nan_propagates_with_the_shape_of_q():
+    result = quantile_1D([1.0, np.nan, 3.0], [1.0, 1.0, 1.0], [0.25, 0.5])
+    assert result.shape == (2,)
+    assert np.isnan(result).all()
+
+
+def test_nothing_to_average_over_keeps_the_shape_of_q():
+    with pytest.warns(RuntimeWarning, match="positive weight"):
+        result = quantile_1D(np.array([]), np.array([]), [0.25, 0.5])
+    assert result.shape == (2,)
+    assert np.isnan(result).all()
+
+
+def test_array_q_works_for_the_nan_and_masked_paths():
+    qs = [0.25, 0.75]
+    expected = [quantile_1D([1.0, 3.0], [1.0, 1.0], q) for q in qs]
+    np.testing.assert_array_equal(
+        wquantiles.nanquantile([1.0, np.nan, 3.0], [1.0, 1.0, 1.0], qs), expected
+    )
+    masked = np.ma.masked_array([1.0, 999.0, 3.0], mask=[0, 1, 0])
+    np.testing.assert_array_equal(quantile_1D(masked, np.ones(3), qs), expected)
+
+
+def test_array_q_through_the_deprecated_keyword():
+    with pytest.warns(DeprecationWarning):
+        result = quantile_1D(SORTED, SORTED_W, quantile=[0.25, 0.75])
+    np.testing.assert_array_equal(
+        result, [quantile_1D(SORTED, SORTED_W, q) for q in (0.25, 0.75)]
+    )

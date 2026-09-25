@@ -99,8 +99,8 @@ def _unpack(x: Any) -> tuple[np.ndarray, np.ndarray]:
 
 
 def _weighted_quantile_1D(
-    data: Any, weights: Any, q: float, omit_nan: bool
-) -> np.floating:
+    data: Any, weights: Any, q: Any, omit_nan: bool
+) -> Any:
     """The algorithm itself, on a single dimension."""
     data, data_mask = _unpack(data)
     weights, weights_mask = _unpack(weights)
@@ -110,7 +110,10 @@ def _weighted_quantile_1D(
         raise TypeError("weights must be a one dimensional array")
     if data.shape != weights.shape:
         raise TypeError("the length of data and weights must be the same")
-    if (q > 1.0) or (q < 0.0):
+    # Accept either a single quantile or an array of them, as np.quantile
+    # does. Converted first: a plain list cannot be compared with a float.
+    q = np.asarray(q, dtype=float)
+    if np.any(q > 1.0) or np.any(q < 0.0):
         raise ValueError("q must have a value between 0. and 1.")
 
     ignore = data_mask | weights_mask
@@ -134,7 +137,7 @@ def _weighted_quantile_1D(
     if unknown.any():
         if not omit_nan:
             # Propagate, as np.quantile does. nanquantile omits instead.
-            return np.float64(np.nan)
+            return np.full(q.shape, np.nan)[()]
         ignore = ignore | unknown
 
     # A datum with zero weight owns no probability mass, so it must not remain
@@ -148,7 +151,7 @@ def _weighted_quantile_1D(
     if data.size == 0:
         # Covers empty input, all-zero weights, and everything being masked.
         warnings.warn(_EMPTY_MSG, RuntimeWarning, stacklevel=3)
-        return np.float64(np.nan)
+        return np.full(q.shape, np.nan)[()]
 
     # Sort the data, and within a run of equal values sort by weight. The
     # secondary key costs nothing and buys exactness: tied weights are summed
@@ -177,29 +180,35 @@ def _weighted_quantile_1D(
     return np.interp(q, Pn, values)
 
 
-def _weighted_quantile(data: Any, weights: Any, q: float, omit_nan: bool) -> Any:
+def _weighted_quantile(data: Any, weights: Any, q: Any, omit_nan: bool) -> Any:
     """Apply the 1D algorithm along the last axis."""
     values, mask = _unpack(data)
     if values.ndim == 1:
         return _weighted_quantile_1D(data, weights, q, omit_nan)
     shape = values.shape
+    q_shape = np.shape(q)
     flat = values.reshape((int(np.prod(shape[:-1])), shape[-1]))
     flat_mask = mask.reshape(flat.shape)
     masked = flat_mask.any()
-    result = np.empty(flat.shape[0], dtype=float)
+    result = np.empty((flat.shape[0],) + q_shape, dtype=float)
     for i in range(flat.shape[0]):
         row = np.ma.masked_array(flat[i], mask=flat_mask[i]) if masked else flat[i]
         result[i] = _weighted_quantile_1D(row, weights, q, omit_nan)
-    return result.reshape(shape[:-1])
+    out = result.reshape(shape[:-1] + q_shape)
+    if q_shape:
+        # np.quantile puts the quantile axes first, so do the same.
+        n = len(q_shape)
+        out = np.moveaxis(out, tuple(range(out.ndim - n, out.ndim)), tuple(range(n)))
+    return out
 
 
 def quantile_1D(
     data: ArrayLike,
     weights: ArrayLike,
-    q: float = _UNSET,
+    q: ArrayLike = _UNSET,
     *,
-    quantile: float = _UNSET,
-) -> np.floating:
+    quantile: ArrayLike = _UNSET,
+) -> Any:
     """
     Compute the weighted quantile of a 1D numpy array.
 
@@ -211,16 +220,18 @@ def quantile_1D(
     weights : array_like
         Array with the weights of the same size of `data`. They must be
         non-negative and finite. Entries with zero weight are dropped.
-    q : float
-        Quantile to compute. It must have a value between 0 and 1.
-    quantile : float
+    q : float or array_like
+        Quantile, or array of quantiles, to compute. Every value must lie
+        between 0 and 1.
+    quantile : float or array_like
         Deprecated alias for `q`.
 
     Returns
     -------
-    quantile_1D : numpy.floating
-        The output value. It is NaN if `data` or `weights` contains any NaN,
-        and NaN with a `RuntimeWarning` if nothing is left to average over.
+    quantile_1D : numpy.floating or ndarray
+        The output value, or an array shaped like `q` if `q` is an array. It
+        is NaN if `data` or `weights` contains any NaN, and NaN with a
+        `RuntimeWarning` if nothing is left to average over.
 
     Raises
     ------
@@ -240,9 +251,9 @@ def quantile_1D(
 def quantile(
     data: ArrayLike,
     weights: ArrayLike,
-    q: float = _UNSET,
+    q: ArrayLike = _UNSET,
     *,
-    quantile: float = _UNSET,
+    quantile: ArrayLike = _UNSET,
 ) -> Any:
     """
     Weighted quantile of an array with respect to the last axis.
@@ -254,16 +265,20 @@ def quantile(
     weights : array_like
         Array with the weights. It must have the same size of the last
         axis of `data`. Entries with zero weight are dropped.
-    q : float
-        Quantile to compute. It must have a value between 0 and 1.
-    quantile : float
+    q : float or array_like
+        Quantile, or array of quantiles, to compute. Every value must lie
+        between 0 and 1.
+    quantile : float or array_like
         Deprecated alias for `q`.
 
     Returns
     -------
     quantile : numpy.floating or ndarray
-        The output value for one dimensional `data`, otherwise an array with
-        the shape of `data` minus its last axis.
+        For one dimensional `data` and a scalar `q`, a single value. An array
+        `q` adds its shape in front, and multi-dimensional `data` adds its
+        shape minus the last axis behind, so `data` of shape ``(3, 4, 5)``
+        with three quantiles gives ``(3, 3, 4)`` -- the quantile axes come
+        first, as they do in `np.quantile`.
 
     Raises
     ------
@@ -292,9 +307,9 @@ def median(data: ArrayLike, weights: ArrayLike) -> Any:
 def nanquantile(
     data: ArrayLike,
     weights: ArrayLike,
-    q: float = _UNSET,
+    q: ArrayLike = _UNSET,
     *,
-    quantile: float = _UNSET,
+    quantile: ArrayLike = _UNSET,
 ) -> Any:
     """
     Weighted quantile along the last axis, ignoring NaN.

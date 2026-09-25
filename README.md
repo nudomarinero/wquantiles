@@ -23,11 +23,16 @@ pip install wquantiles
 3.8
 >>> wquantiles.quantile(data, weights, 0.25)
 2.125
+>>> wquantiles.quantile(data, weights, [0.25, 0.5, 0.75])
+array([2.125, 3.8  , 6.25 ])
 ```
 
 `quantile` takes the data, a one-dimensional array of weights, and the
-quantile to compute, between 0 and 1. For multi-dimensional data the weights
-apply along the last axis, and the weights must match that axis. `median` is
+quantile to compute, between 0 and 1. `q` may also be an array, in which case
+its shape goes in front of the result — the same convention `np.quantile`
+uses. For multi-dimensional data the weights apply along the last axis, and
+the weights must match that axis, so data of shape `(3, 4, 5)` with three
+quantiles gives `(3, 3, 4)`. `median` is
 an alias for `quantile(data, weights, 0.5)`. `nanquantile` and `nanmedian` are
 the same but treat `NaN` as missing data rather than propagating it, as
 `np.nanquantile` does.

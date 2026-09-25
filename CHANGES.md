@@ -1,6 +1,11 @@
 Unreleased
 ==========
 
+- `q` may now be an array, so several quantiles can be computed in one call:
+  `quantile(data, weights, [0.25, 0.5, 0.75])`. The quantile axes come first in
+  the result, as they do in `np.quantile`. Based on a patch by Yiqing Song
+  (@ysong-astro). Scalar `q` is unaffected, bit-for-bit.
+
 - Rewrote the README around a figure showing how a weighted quantile is
   actually computed, and how it differs from the discrete definition that
   `np.quantile(..., weights=...)` implements. The figure is regenerable:

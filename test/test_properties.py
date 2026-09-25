@@ -174,3 +174,12 @@ def test_order_does_not_matter_even_with_ties(data, q, seed):
     assert quantile_1D(array, weights, q) == pytest.approx(
         quantile_1D(array[perm], weights[perm], q), rel=1e-9, abs=1e-9
     )
+
+
+@slow
+@given(sample=samples(), qs=st.lists(quantiles, min_size=1, max_size=6))
+def test_an_array_of_quantiles_equals_asking_one_at_a_time(sample, qs):
+    data, weights = sample
+    together = quantile_1D(data, weights, qs)
+    separately = [quantile_1D(data, weights, q) for q in qs]
+    np.testing.assert_array_equal(together, separately)

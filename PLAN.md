@@ -396,7 +396,7 @@ naturally with Phase 8's fix-or-retire call on `docs/`.
 
 ---
 
-## Phase 6 — Accept an array of quantiles · `feat/array-quantiles` · **[ ]**
+## Phase 6 — Accept an array of quantiles · `feat/array-quantiles` · **[~]**
 
 Merges the only upstream-worthy fork change. `ysong-astro/wquantiles @ e1e52f7`
 is the sole fork with a commit of its own worth taking (the other twelve are
@@ -416,11 +416,15 @@ quantile_1D(d, w, np.array([0.25, 0.5, 0.75]))
   -> ValueError: The truth value of an array with more than one element is ambiguous
 ```
 
-Extend it to `quantile()` as well, where the multi-dimensional reshape needs
-adjusting for the extra output axis, and settle the output shape convention —
-follow `np.quantile`, which puts the quantile axis first.
+Extended to `quantile()` as well. The output shape follows `np.quantile`: the
+quantile axes come first, so `(3, 4, 5)` data with three quantiles gives
+`(3, 3, 4)`, checked against `np.quantile(..., axis=-1)` directly rather than
+assumed. `q` is converted with `np.asarray` before the range check, since a
+plain list cannot be compared with a float. The NaN and nothing-to-average-over
+paths return an array shaped like `q` rather than a bare scalar.
 
-**Breaking changes:** none. This turns an exception into a working call.
+**Breaking changes:** none. This turns an exception into a working call, and
+scalar `q` is bit-identical to the released 0.7 over 41,804 comparisons.
 
 ---
 

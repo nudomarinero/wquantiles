@@ -8,6 +8,10 @@ from the discrete definition that ``np.quantile(..., weights=...)`` implements.
 import matplotlib
 
 matplotlib.use("Agg")
+# Deterministic output: without a fixed hash salt matplotlib derives element
+# ids from object ids, and it stamps the current date into the SVG metadata,
+# so regenerating an unchanged figure would still produce a large diff.
+matplotlib.rcParams["svg.hashsalt"] = "wquantiles"
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -142,7 +146,8 @@ def main():
     fig.tight_layout(rect=(0, 0.02, 1, 0.97))
     for suffix in ("svg", "png"):
         out = HERE / "figures" / f"weighted-median.{suffix}"
-        fig.savefig(out, dpi=180, facecolor="white")
+        metadata = {"Date": None} if suffix == "svg" else {}
+        fig.savefig(out, dpi=180, facecolor="white", metadata=metadata)
         print(f"wrote {out}")
 
 
